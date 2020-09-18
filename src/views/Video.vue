@@ -68,6 +68,7 @@ export default {
             console.log('call started'); //temp
 
             var candidatesBuffer = [];
+            var outer_this = this
 
             this.socket.on("token", data => {
                 console.log("token recieved");
@@ -82,7 +83,6 @@ export default {
                 })
                 this.dataChannel.onmessage = this.onChannelMessage;
 
-                var outer_this = this
                 this.localStream.getTracks().forEach(function(track) {
                     outer_this.peer.addTrack(track, outer_this.localStream);
                     console.log("adding track"); // temp 
@@ -151,7 +151,6 @@ export default {
                 }
             });
 
-            var outer_this = this
             this.socket.on('video-answer', answer => {
                 console.log("received video answer");
                 if(outer_this.peer) {
@@ -193,6 +192,7 @@ export default {
                 console.log(offer.sdp)
 
                 var remoteSessionDescription = new RTCSessionDescription(offer.sdp);
+                var outer_this = this
 
                 this.socket.on("token", data => {
                     console.log("token recieved");
@@ -209,21 +209,21 @@ export default {
 
                     this.peer.oniceconnectionstatechange = function() {
                         console.log("new ice connection state: " + this.peer.iceConnectionState);
-                        if(this.peer.iceConnectionState === "closed") {
-                            this.closeCall()
-                        } else if(this.peer.iceConnectionState === "failed") {
-                            this.closeCall()
-                        } else if(this.peer.iceConnectionState === "disconnected") {
-                            this.closeCall()
-                        } else if(!this.peer.iceConnectionState) {
-                            this.closeCall()
+                        if(outer_this.peer.iceConnectionState === "closed") {
+                            outer_this.closeCall()
+                        } else if(outer_this.peer.iceConnectionState === "failed") {
+                            outer_this.closeCall()
+                        } else if(outer_this.peer.iceConnectionState === "disconnected") {
+                            outer_this.closeCall()
+                        } else if(!outer_this.peer.iceConnectionState) {
+                            outer_this.closeCall()
                         }
                     };
 
                     this.peer.onicecandidate = function(event) {
                         if(event.candidate) {
                             console.log("initiator got candidate");
-                            this.socket.emit("new-ice-candidate", { 
+                            outer_this.socket.emit("new-ice-candidate", { 
                                 email: firebase.auth().currentUser.email,
                                 target_email: offer.email,
                                 candidate:event.candidate 
@@ -235,13 +235,12 @@ export default {
                     };
 
                     this.peer.ontrack = function(event) {
-                        this.addRemoteStream(event.streams[0]);
+                        outer_this.addRemoteStream(event.streams[0]);
                     };
 
                     this.peer.onnegotiationneeded = function() {
                         console.log("creating offer");
-                        var outer_this = this
-                        this.peer.createOffer().then(function(offer){
+                        outer_this.peer.createOffer().then(function(offer){
                             console.log("setting local description")
                             outer_this.peer.setLocalDescription(offer);
                         })
@@ -259,7 +258,6 @@ export default {
                         });
                     };
 
-                    var outer_this = this
                     this.peer.setRemoteDescription(remoteSessionDescription).then(function() {
                         console.log('setting tracks') // temp
                         outer_this.localStream.getTracks().forEach(track => outer_this.peer.addTrack(track, outer_this.localStream));
