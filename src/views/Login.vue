@@ -24,7 +24,7 @@ export default {
     methods: {
         login: function() {
             // regex to check that the input is both an email, and that the email belongs to participating unis
-            let emailValidator = new RegExp("[\\w\\d\\.]+@(?:(?:imperial)|(?:ucl)|(?:lse)|(?:kcl))\\.ac\\.uk","i")
+            let emailValidator = new RegExp("[\\w\\d\\.]+@(?:(?:imperial)|(?:gmail)|(?:ucl)|(?:lse)|(?:kcl))(?:(?:\\.ac\\.uk)|(?:\\.com))","i")
 
             if(emailValidator.test(this.email)) {
                 var actionCodeSettings = {

@@ -26,8 +26,8 @@ export default {
             peer: null,
             dataChannel: null,
             currentlyNegotiating: false,
-            //socket: io('https://www.bath-water.com/', {transports: ['polling']})
-            socket: io('http://localhost:3000', {transports: ['polling']})
+            socket: io('https://www.bath-water.com/', {transports: ['polling']})
+            //socket: io('http://localhost:3000', {transports: ['polling']})
         }
     },
     methods: {
@@ -43,15 +43,19 @@ export default {
         },
 
         beginConnection: function() {
+            var outer_this = this
             this.socket.on("buddy-found", function(callInfo) {
                 // processing
-                this.startCall(callInfo); 
+
+                outer_this.searching = false
+                outer_this.startCall(callInfo); 
             })
+            this.searching = true
             this.socket.emit("find-buddy", { email: firebase.auth().currentUser.email });
         },
 
         pingSocket: function() {
-            console.log("pingig socket");
+            console.log("pinging socket");
             this.socket.emit("ping", "mystring");
         },
 
@@ -78,29 +82,30 @@ export default {
                 })
                 this.dataChannel.onmessage = this.onChannelMessage;
 
+                var outer_this = this
                 this.localStream.getTracks().forEach(function(track) {
-                    this.peer.addTrack(track, this.localStream);
+                    outer_this.peer.addTrack(track, outer_this.localStream);
                     console.log("adding track"); // temp 
                     console.log(track); // temp
                 });
 
                 this.peer.oniceconnectionstatechange = function() {
-                    console.log("new ice connection state: " + this.peer.iceConnectionState);
-                    if(this.peer.iceConnectionState === "closed") {
-                        this.closeCall()
-                    } else if(this.peer.iceConnectionState === "failed") {
-                        this.closeCall()
-                    } else if(this.peer.iceConnectionState === "disconnected") {
-                        this.closeCall()
-                    } else if(!this.peer.iceConnectionState) {
-                        this.closeCall()
+                    console.log("new ice connection state: " + outer_this.peer.iceConnectionState);
+                    if(outer_this.peer.iceConnectionState === "closed") {
+                        outer_this.closeCall()
+                    } else if(outer_this.peer.iceConnectionState === "failed") {
+                        outer_this.closeCall()
+                    } else if(outer_this.peer.iceConnectionState === "disconnected") {
+                        outer_this.closeCall()
+                    } else if(!outer_this.peer.iceConnectionState) {
+                        outer_this.closeCall()
                     }
                 };
         
                 this.peer.onicecandidate = function(event) {
                     if(event.candidate) {
                         console.log("initiator got candidate");
-                        this.socket.emit("new-ice-candidate", { 
+                        outer_this.socket.emit("new-ice-candidate", { 
                             email: firebase.auth().currentUser.email,
                             target_email: callInfo.target_email,
                             candidate: event.candidate 
@@ -112,16 +117,15 @@ export default {
                 };
 
                 this.peer.ontrack = function(event) {
-                    this.addRemoteStream(event.streams[0]);
+                    outer_this.addRemoteStream(event.streams[0]);
                 };
 
                 this.peer.onnegotiationneeded = function() {
                     console.log("negotatiation needed called");
-                    if(!this.currentlyNegotiating) {
+                    if(!outer_this.currentlyNegotiating) {
                         console.log("creating offer");
-                        this.currentlyNegotiating = true
-                        var outer_this = this
-                        this.peer.createOffer().then(function(offer){
+                        outer_this.currentlyNegotiating = true
+                        outer_this.peer.createOffer().then(function(offer){
                             console.log("setting local description")
                             outer_this.peer.setLocalDescription(offer);
                         })
@@ -142,25 +146,26 @@ export default {
                 };
 
                 this.peer.onsignalingstatechange = function() {
-                    console.log("signalling state changed: " + this.peer.signalingState);
-                    this.currentlyNegotiating = (this.peer.signalingState != "stable");
+                    console.log("signalling state changed: " + outer_this.peer.signalingState);
+                    outer_this.currentlyNegotiating = (outer_this.peer.signalingState != "stable");
                 }
             });
 
+            var outer_this = this
             this.socket.on('video-answer', answer => {
                 console.log("received video answer");
-                if(this.peer) {
+                if(outer_this.peer) {
                     var remoteSessionDescription = new RTCSessionDescription(answer.sdp);
-                    this.peer.setRemoteDescription(remoteSessionDescription)
+                    outer_this.peer.setRemoteDescription(remoteSessionDescription)
                 }
             });
 
             this.socket.on('new-ice-candidate', candidate => {
-                if(this.peer && this.peer.remoteSessionDescription) {
+                if(outer_this.peer && outer_this.peer.remoteSessionDescription) {
                     console.log('adding ice candidate');
                     console.log(candidate);
                     var ICECandidate = new RTCIceCandidate(candidate.candidate);
-                    this.peer.addIceCandidate(ICECandidate);
+                    outer_this.peer.addIceCandidate(ICECandidate);
                 } else {
                     console.log('adding ice candidate to buffer');
                     candidatesBuffer.push(candidate);
@@ -330,7 +335,8 @@ export default {
         const outer_this = this
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(function(stream) {
-            outer_this.stream = stream;
+            outer_this.localStream = stream;
+            outer_this.stream = stream
             outer_this.socket.on("video-offer", outer_this.onOffer);
             outer_this.socket.on("ping", function(response) {
                 console.log("received ping: " + response)
