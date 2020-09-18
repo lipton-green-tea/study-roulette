@@ -208,7 +208,7 @@ export default {
                     this.dataChannel.onmessage = this.onChannelMessage;
 
                     this.peer.oniceconnectionstatechange = function() {
-                        console.log("new ice connection state: " + this.peer.iceConnectionState);
+                        console.log("new ice connection state: " + outer_this.peer.iceConnectionState);
                         if(outer_this.peer.iceConnectionState === "closed") {
                             outer_this.closeCall()
                         } else if(outer_this.peer.iceConnectionState === "failed") {
@@ -256,12 +256,11 @@ export default {
                             console.log("error while handling negotiationneeded");
                             console.log(error);
                         });
-                    };
-
+                    }; 
+ 
                     this.peer.setRemoteDescription(remoteSessionDescription).then(function() {
                         console.log('setting tracks') // temp
                         outer_this.localStream.getTracks().forEach(track => outer_this.peer.addTrack(track, outer_this.localStream));
-                        outer_this.localStream.getTracks().forEach(track => track.enabled = false);
                     })
                     .then(function() {
                         console.log('creating answer') // temp
@@ -279,7 +278,10 @@ export default {
                             sdp:outer_this.peer.localDescription 
                         });
                     })
-                    .catch(console.log("error while answering offer"));
+                    .catch((error) => {
+                        console.log("error while answering offer")
+                        console.log(error)
+                    });
 
                     while(candidatesBuffer.length > 0) {
                         var candidate = candidatesBuffer.pop();
