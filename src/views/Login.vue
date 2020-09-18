@@ -1,10 +1,14 @@
 <template>
   <!-- Default form login -->
   <div class="email-login">
-    <p class="h4 text-center mb-4">Enter your email to sign in or create an account</p>
-    <input type="email" v-model="email" id="defaultFormLoginEmailEx"/>
-    <div class="text-center mt-4">
-      <button class="btn btn-indigo" @click="login">Login</button>
+    <div class="login-container">
+        <div>
+            <p class="h4">Enter your email to get a sign-in link</p>
+            <input class="email-input" type="email" placeholder="Email..." v-model="email"/>
+        </div>
+        <p v-if="unsupportedEmail" class="error">Oops looks like your email isnt supported yet. This service is currently only available for the universities of Imperial (the GOAT), UCL, LSE and KCL.</p>
+        <br>
+        <a v-on:click="login" class="button1 bouncy">Login</a>
     </div>
   </div>
   <!-- Default form login -->
@@ -18,7 +22,7 @@ export default {
     data() {
         return {
             email: '',
-            emailError: false
+            unsupportedEmail: false
         };
     },
     methods: {
@@ -61,7 +65,7 @@ export default {
                 });
             } else {
                 // set email error to true to inform the user that the issue is with the email they've typed in
-                this.emailError = true
+                this.unsupportedEmail = true
             }
         }
     }
@@ -69,5 +73,97 @@ export default {
 </script>
 
 <style scoped>
+p.h4 {
+    color: #FFF;
+    text-align: left;
+    font-size: 1.4em;
+}
 
+p.error {
+    color: #FBB;
+    font-size: 0.9em;
+    text-align: left;
+}
+
+div.email-login {
+    position: absolute;
+    background-color: #2a8aad;
+    width: 100%;
+    height: 100%;
+    right: 0;
+    bottom: 0;
+}
+
+input.email-input {
+    display:inline-block;
+    height: 40px;
+    width: 100%;
+    border:0.1em solid #FFFFFF;
+    margin:0 0.3em 0.3em 0;
+    border-radius:0.12em;
+    box-sizing: border-box;
+    text-decoration:none;
+    font-family:'Roboto',sans-serif;
+    font-weight:300;
+    color:#FFFFFF;
+    background-color: #2a8aad;
+    text-align:left;
+    transition: all 0.2s;
+    font-size: 1em;
+}
+
+input.email-input:focus {
+    outline: none;
+}
+
+::placeholder {
+    color: #FFFFFF;
+    font-family:'Roboto',sans-serif;
+    font-weight:300;
+}
+
+a.button1{
+    display:inline-block;
+    padding:0.60em 1.2em;
+    height: 40px;
+    width: 30%;
+    border:0.1em solid #FFFFFF;
+    margin:0 0.3em 0.3em 0;
+    border-radius:0.12em;
+    box-sizing: border-box;
+    text-decoration:none;
+    font-family:'Roboto',sans-serif;
+    font-weight:300;
+    color:#FFFFFF;
+    text-align:center;
+    transition: all 0.2s;
+}
+
+a.button1:hover{
+    color:#2a8aad;
+    background-color:#FFFFFF;
+}
+
+@media all and (max-width:30em){
+    a.button1{
+        display:block;
+        margin:0.4em auto;
+    }
+}
+
+.login-container {
+    border-radius: 25px;
+    height: 300px;
+    width: 600px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-top: -170px;
+    margin-left: -300px;
+    color: #2a8aad;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+}
 </style>
