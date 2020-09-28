@@ -12,9 +12,18 @@
                 <a v-on:click="closeCall" class="button1Red">end call</a>
             </div>
         </div>
-        <div id="fullscreen-overlay" v-if="preview_screen" style="opacity: 70%;"></div>
-        <div class="loader" v-if="searching"></div>
-        <div id="fullscreen-overlay" v-if="searching"></div>
+        <div id="timeout-screen" v-if="timeout">
+            <div>
+                <h2>Your search has timed out</h2>
+                <p>Try again, or come back when more people are online.</p>
+            </div>
+            <a v-on:click="backToHome" class="button1">back</a>
+        </div>
+        <div id="search-options" v-if="searching">
+            <div class="loader"></div>
+            <a v-on:click="cancelSearch" id="cancel-search-button" class="button1">stop searching</a>
+        </div>
+        <div id="fullscreen-overlay" v-if="searching||timeout||preview_screen" style="opacity: 70%;"></div>
         <video :src-object.prop.camel="stream" :volume.prop.camel="volume" autoplay ref="video" id="fullscreen-video"/>
     </div>
 </template>
@@ -30,6 +39,7 @@ export default {
             preview_screen: true,
             searching: false,
             in_call: false,
+            timeout: false,
             volume: 0,
             partnerID: "",
             partnerEmail: "",
@@ -67,7 +77,25 @@ export default {
                 }
                 this.database.collection("reports").add(report)
                 this.reported = true
+
+                alert("we've recorded your report, and we'll be in touch shortly to discuss the incident.")
+            } else {
+                alert("You've already submitted a report. Please let us know any additional information when we get in touch.")
             }
+        },
+
+        cancelSearch: function() {
+            const info = {
+                email: firebase.auth().currentUser.email
+            }
+            this.socket.emit("cancel-search", info)
+            this.searching = false
+            this.preview_screen = true
+        },
+
+        backToHome: function() {
+            this.timeout = false
+            this.preview_screen = true
         },
 
         onLocalMediaStream: function() {
@@ -79,6 +107,11 @@ export default {
 
         reset: function() {
             this.socket.emit("reset-queue")
+        },
+
+        openTimeout: function() {
+            this.searching = false
+            this.timeout = true
         },
 
         beginConnection: function(callType) {
@@ -93,6 +126,12 @@ export default {
                 outer_this.volume = 1
                 outer_this.previewStream = outer_this.localStream
                 outer_this.startCall(callInfo); 
+            })
+            this.socket.on("queue-timeout", function() {
+                if(outer_this.searching) {
+                    outer_this.searching = false
+                    outer_this.timeout = true
+                }
             })
             this.searching = true
             this.preview_screen = false
@@ -461,7 +500,7 @@ export default {
     min-width: 100%;
     min-height: 100%;
     background-color: #000;
-    opacity: 80%;
+    opacity: 70%;
     z-index: 1;
 }
 
@@ -497,6 +536,31 @@ export default {
     justify-content: space-evenly;
 }
 
+#search-options {
+    border-radius: 25px;
+    height: 300px;
+    width: 400px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-top: -100px;
+    margin-left: -200px;
+    color: #ffffff;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+}
+
+#cancel-search-button {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    width: 180px;
+    margin-top: 60px;
+    margin-left: -74px;
+}
+
 .loader {
     position: fixed;
     top: 50%;
@@ -510,6 +574,22 @@ export default {
     margin-left: -60px;
     animation: spin 2s linear infinite;
     z-index: 2;
+}
+
+#timeout-screen {
+    border-radius: 25px;
+    height: 300px;
+    width: 400px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-top: -150px;
+    margin-left: -200px;
+    color: #ffffff;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
 }
 
 @keyframes spin {
