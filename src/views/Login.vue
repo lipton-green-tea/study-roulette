@@ -22,13 +22,30 @@ export default {
     data() {
         return {
             email: '',
-            unsupportedEmail: false
+            unsupportedEmail: false,
+            validExtensions: [
+                "imperial",
+                "ucl",
+                "lse",
+                "kcl"
+            ]
         };
     },
     methods: {
+        generateEmailRegex: function() {
+            let regexString = "[\\w\\d\\.]+@(?:"
+            for (let index = 0; index < this.validExtensions.length - 1; index++) {
+                regexString = regexString + "(?:" + this.validExtensions[index] + ")|"
+            }
+            regexString = regexString + "(?:" + this.validExtensions[this.validExtensions.length - 1] + "))(?:\\.ac\\.uk)"
+
+            return regexString
+        },
+
         login: function() {
             // regex to check that the input is both an email, and that the email belongs to participating unis
             let emailValidator = new RegExp("[\\w\\d\\.]+@(?:(?:imperial)|(?:gmail)|(?:ucl)|(?:lse)|(?:kcl))(?:(?:\\.ac\\.uk)|(?:\\.com))","i")
+            
 
             if(emailValidator.test(this.email)) {
                 var actionCodeSettings = {
@@ -137,11 +154,19 @@ a.button1{
     color:#FFFFFF;
     text-align:center;
     transition: all 0.2s;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
 }
 
 a.button1:hover{
     color:#2a8aad;
     background-color:#FFFFFF;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
 }
 
 @media all and (max-width:30em){

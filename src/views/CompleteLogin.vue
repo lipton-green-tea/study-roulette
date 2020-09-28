@@ -1,6 +1,9 @@
 <template>
   <div class="complete-login">
     <h2>Give us a second</h2>
+    <div class="login-error" v-if="loginError">
+        <h2>Looks like there's a problem with your link...</h2>
+    </div>
   </div>
 </template>
 
@@ -12,7 +15,8 @@ export default {
     data() {
         return {
             email: '',
-            needEmail: false
+            needEmail: false,
+            loginError: false
         };
     },
     mounted() {

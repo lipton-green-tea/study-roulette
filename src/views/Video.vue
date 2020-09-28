@@ -1,11 +1,18 @@
 <template>
     <div class="main-video">
         <div id="connection-options" class="floating-menu" v-if="preview_screen">
-            <a v-on:click="pingSocket" class="button1 bouncy">ping server</a>
-            <a v-on:click="beginConnection" class="button1 bouncy" style="animation-delay:0.07s">find a study buddy</a>
-            <a v-on:click="reset" class="button1 bouncy" style="animation-delay:0.14s">reset</a>
+            <a v-on:click="beginConnection( 'study' )" class="button1 bouncy">find a study buddy</a>
+            <a v-on:click="beginConnection( 'chat' )" class="button1 bouncy" style="animation-delay:0.07s">find somebody to chat</a>
+            <!-- <a v-on:click="reset" class="button1 bouncy" style="animation-delay:0.14s">my account</a> -->
         </div>
-        <div id="fullscreen-overlay" v-if="preview_screen"></div>
+        <div id="call-options" v-if="in_call">
+            <video :src-object.prop.camel="previewStream" muted autoplay ref="video" id="preview-video"/>
+            <div id="call-actions">
+                <a v-on:click="reportUser" class="button1Full">report</a>
+                <a v-on:click="closeCall" class="button1Red">end call</a>
+            </div>
+        </div>
+        <div id="fullscreen-overlay" v-if="preview_screen" style="opacity: 70%;"></div>
         <div class="loader" v-if="searching"></div>
         <div id="fullscreen-overlay" v-if="searching"></div>
         <video :src-object.prop.camel="stream" :volume.prop.camel="volume" autoplay ref="video" id="fullscreen-video"/>
@@ -24,17 +31,45 @@ export default {
             searching: false,
             in_call: false,
             volume: 0,
+            partnerID: "",
+            partnerEmail: "",
             stream: null,
+            previewStream: null,
             localStream: null,
             remoteStream: null,
             peer: null,
             dataChannel: null,
             currentlyNegotiating: false,
-            socket: io('https://www.bath-water.com/', {transports: ['polling']})
+            //socket: io('https://www.bath-water.com/', {transports: ['polling']})
+            socket: io('https://robstoks-webrtc.nw.r.appspot.com/', {transports: ['polling']}),
             //socket: io('http://localhost:3000', {transports: ['polling']})
+            database: firebase.firestore(),
+            reported: false
         }
     },
     methods: {
+        reportUser: function() {
+            if(!this.reported) {
+                let now = new Date()
+                console.log("report details")
+                console.log("reporterID", firebase.auth().currentUser.uid)
+                console.log("reporterEmail", firebase.auth().currentUser.email)
+                console.log("offenderID", this.partnerID)
+                console.log("offenderEmail", this.partnerEmail)
+                console.log("time", now.getTime())
+                let report = {
+                    reporterID: firebase.auth().currentUser.uid,
+                    reporterEmail: firebase.auth().currentUser.email,
+                    offenderID: this.partnerID,
+                    offenderEmail: this.partnerEmail,
+                    time: now.getTime(),
+                    resolved: false
+                }
+                this.database.collection("reports").add(report)
+                this.reported = true
+            }
+        },
+
         onLocalMediaStream: function() {
             if(this.localStream) {
                 this.$refs.video.volume = 0
@@ -46,18 +81,25 @@ export default {
             this.socket.emit("reset-queue")
         },
 
-        beginConnection: function() {
+        beginConnection: function(callType) {
             var outer_this = this
             this.socket.on("buddy-found", function(callInfo) {
                 // processing
 
+                outer_this.partnerEmail = callInfo.target_email
+
                 outer_this.searching = false
                 outer_this.in_call = true
+                outer_this.volume = 1
+                outer_this.previewStream = outer_this.localStream
                 outer_this.startCall(callInfo); 
             })
             this.searching = true
             this.preview_screen = false
-            this.socket.emit("find-buddy", { email: firebase.auth().currentUser.email });
+            this.socket.emit("find-buddy", { 
+                email: firebase.auth().currentUser.email,
+                callType: callType
+            });
         },
 
         pingSocket: function() {
@@ -141,7 +183,7 @@ export default {
                             outer_this.socket.emit("video-offer", { 
                                 email: firebase.auth().currentUser.email,
                                 target_email: callInfo.target_email,
-                                sdp:outer_this.peer.localDescription 
+                                sdp: outer_this.peer.localDescription 
                             });
                         })
                         .catch((error) => {
@@ -160,13 +202,17 @@ export default {
             this.socket.on('video-answer', answer => {
                 console.log("received video answer");
                 if(outer_this.peer) {
+                    console.log("setting remote session description")
                     var remoteSessionDescription = new RTCSessionDescription(answer.sdp);
                     outer_this.peer.setRemoteDescription(remoteSessionDescription)
+                    console.log("done setting remote session description")
                 }
             });
 
             this.socket.on('new-ice-candidate', candidate => {
-                if(outer_this.peer && outer_this.peer.remoteSessionDescription) {
+                //  && outer_this.peer.remoteSessionDescription
+                console.log(outer_this.peer)
+                if(outer_this.peer) {
                     console.log('adding ice candidate');
                     console.log(candidate);
                     var ICECandidate = new RTCIceCandidate(candidate.candidate);
@@ -190,6 +236,11 @@ export default {
 
         onOffer: function(offer) {
             if(offer.sdp) {
+                this.partnerEmail = offer.target_email
+
+                this.searching = false
+                this.in_call = true
+                this.volume = 1
                 this.socket.emit("token")
 
                 var candidatesBuffer = [];
@@ -335,6 +386,12 @@ export default {
             if(this.statusChannel) {
                 this.statusChannel.close();
             }
+
+            this.in_call = false
+            this.preview_screen = true
+            this.volume = 0
+            this.previewStream = null
+            this.stream = this.localStream
         }
     }, //hello
     mounted() {
@@ -365,6 +422,36 @@ export default {
     bottom: 0;
     min-width: 100%;
     min-height: 100%;
+    z-index: -1;
+}
+
+#call-options {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    min-width: 100%;
+    min-height: 100%;
+}
+
+#preview-video {
+    position: absolute;
+    top: 10px;
+    right:10px;
+    width: 200px;
+    transform: rotateY(180deg);
+    -webkit-transform:rotateY(180deg); /* Safari and Chrome */
+    -moz-transform:rotateY(180deg); /* Firefox */
+}
+
+#call-actions {
+    position: absolute;
+    bottom: 0px;
+    right: 10px;
+    height: 150px;
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
 }
 
 #fullscreen-overlay {
@@ -374,7 +461,7 @@ export default {
     min-width: 100%;
     min-height: 100%;
     background-color: #000;
-    opacity: 50%;
+    opacity: 80%;
     z-index: 1;
 }
 
@@ -443,15 +530,91 @@ a.button1{
     color:#FFFFFF;
     text-align:center;
     transition: all 0.2s;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
 }
 
 a.button1:hover{
     color:#FFFFFF;
     background-color:#2a8aad;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
+}
+
+a.button1Full{
+    display:inline-block;
+    padding:0.35em 1.2em;
+    border:0.1em solid #FFFFFF;
+    margin:0 0.3em 0.3em 0;
+    border-radius:0.12em;
+    box-sizing: border-box;
+    text-decoration:none;
+    font-family:'Roboto',sans-serif;
+    font-weight:300;
+    color:#000000;
+    background-color: #FFFFFF;
+    text-align:center;
+    transition: all 0.2s;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
+}
+
+a.button1Full:hover{
+    color:#FFFFFF;
+    background-color:#2a8aad;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
+}
+
+a.button1Red{
+    display:inline-block;
+    padding:0.35em 1.2em;
+    border:0.1em solid #FFFFFF;
+    margin:0 0.3em 0.3em 0;
+    border-radius:0.12em;
+    box-sizing: border-box;
+    text-decoration:none;
+    font-family:'Roboto',sans-serif;
+    font-weight:300;
+    color:#FF0000;
+    background-color: #FFFFFF;
+    text-align:center;
+    transition: all 0.2s;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
+}
+
+a.button1Red:hover{
+    color:#FFFFFF;
+    background-color:#FF0000;
+    -webkit-user-select: none; /* Safari */        
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
 }
 
 @media all and (max-width:30em){
     a.button1{
+        display:block;
+        margin:0.4em auto;
+    }
+
+    a.button1Red{
+        display:block;
+        margin:0.4em auto;
+    }
+
+    a.button1Full{
         display:block;
         margin:0.4em auto;
     }
