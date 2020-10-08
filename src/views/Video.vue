@@ -280,6 +280,7 @@ export default {
                 this.searching = false
                 this.in_call = true
                 this.volume = 1
+                this.previewStream = this.localStream
                 this.socket.emit("token")
 
                 var candidatesBuffer = [];
@@ -431,6 +432,19 @@ export default {
             this.volume = 0
             this.previewStream = null
             this.stream = this.localStream
+        },
+
+        beforeUnload: function(e) {
+            console.log(e)
+            console.log("unloading page")
+            if(this.searching) {
+                const info = {
+                    email: firebase.auth().currentUser.email
+                }
+                this.socket.emit("cancel-search", info)
+            } else if (this.in_call) {
+                this.closeCall()
+            }
         }
     }, //hello
     mounted() {
@@ -450,6 +464,14 @@ export default {
         .catch(function(error) {
             console.log(error)
         })
+    },
+    created() {
+        console.log("adding beforeunload handler")
+        window.addEventListener('beforeunload', e => this.beforeUnload(e))
+    },
+    destroyed() {
+        console.log("removed beforeunload handler")
+        window.removeEventListener('beforeunload', e => this.beforeUnload(e))
     }
 }
 </script>
